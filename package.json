@@ -1,0 +1,26 @@
+{
+  "name": "@markup-carve/webpack-loader",
+  "version": "0.1.0",
+  "description": "Webpack and Next.js loader for importing Carve markup files",
+  "license": "MIT",
+  "author": "Mark Scherer",
+  "keywords": ["carve", "webpack", "webpack-loader", "next.js", "markup"],
+  "main": "loader.cjs",
+  "exports": "./loader.cjs",
+  "files": ["loader.cjs", "README.md", "LICENSE"],
+  "engines": {"node": ">=18"},
+  "scripts": {
+    "test": "node --test",
+    "test:next": "next build example --webpack",
+    "test:all": "npm test && npm run test:next"
+  },
+  "dependencies": {"@markup-carve/carve": "^0.1.4"},
+  "devDependencies": {
+    "next": "^16.3.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "webpack": "^5.109.2"
+  },
+  "peerDependencies": {"webpack": ">=5.0.0"},
+  "peerDependenciesMeta": {"webpack": {"optional": true}}
+}
