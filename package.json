@@ -6,7 +6,10 @@
   "author": "Mark Scherer",
   "keywords": ["carve", "webpack", "webpack-loader", "next.js", "markup"],
   "main": "loader.cjs",
-  "exports": "./loader.cjs",
+  "exports": {
+    ".": "./loader.cjs",
+    "./package.json": "./package.json"
+  },
   "files": ["loader.cjs", "README.md", "LICENSE"],
   "engines": {"node": ">=18"},
   "scripts": {
