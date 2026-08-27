@@ -4,6 +4,10 @@
   "description": "Webpack and Next.js loader for importing Carve markup files",
   "license": "MIT",
   "author": "Mark Scherer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/markup-carve/webpack-loader-carve"
+  },
   "keywords": ["carve", "webpack", "webpack-loader", "next.js", "markup"],
   "main": "loader.cjs",
   "exports": {
