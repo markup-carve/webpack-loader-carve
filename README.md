@@ -56,6 +56,12 @@ export default {
 }
 ```
 
+The loader expands `{{ path }}` directives by default. Paths resolve relative
+to the importing `.crv` file and cannot escape webpack's `rootContext`. Set
+`includes: false` to leave directives literal, or set `includeRoot` to another
+absolute containment root. Included files are registered as webpack
+dependencies and trigger rebuilds when they change.
+
 Then render an import from a Server Component:
 
 ```jsx

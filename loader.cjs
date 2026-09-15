@@ -7,15 +7,31 @@
 module.exports = function carveLoader(source) {
   const done = this.async()
   const options = typeof this.getOptions === 'function' ? this.getOptions() : {}
+  const loader = this
 
-  import('@markup-carve/carve').then(({ carveToHtml, parse }) => {
+  Promise.all([import('@markup-carve/carve'), import('@markup-carve/carve/node')]).then(([carve, node]) => {
     const carveOptions = options.carveOptions ?? {}
     const text = source.toString()
-    const document = parse(text, carveOptions)
+    const document = carve.parse(text, carveOptions)
     const frontmatter = document.frontmatter
       ? { format: document.frontmatter.format, content: document.frontmatter.content }
       : null
-    const html = carveToHtml(text, carveOptions)
+    let html
+    if (options.includes ?? true) {
+      const root = require('node:path').resolve(options.includeRoot ?? loader.rootContext)
+      const expanded = carve.expandIncludes(document, text, {
+        resolve: node.fileSystemResolver(root),
+        sourcePath: loader.resourcePath,
+        extensions: carveOptions.extensions,
+      })
+      for (const dependency of expanded.dependencies) {
+        if (dependency.resolved) loader.addDependency(dependency.id)
+      }
+      for (const warning of expanded.warnings) loader.emitWarning(new Error(warning.message))
+      html = carve.renderDocument(carve.resolve(expanded.doc), carveOptions)
+    } else {
+      html = carve.carveToHtml(text, carveOptions)
+    }
     done(null, [
       `export const source = ${JSON.stringify(text)};`,
       `export const html = ${JSON.stringify(html)};`,

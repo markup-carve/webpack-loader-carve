@@ -34,3 +34,25 @@ test('a real webpack build imports rendered HTML and metadata', async () => {
   assert.match(exports.frontmatter.content, /title: Loader/)
   assert.match(exports.source, /# Hello/)
 })
+
+test('a build expands an include relative to its document', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-include-'))
+  await writeFile(path.join(dir, 'shared.crv'), 'Included text.')
+  await writeFile(path.join(dir, 'page.crv'), '{{ shared.crv }}')
+  await writeFile(path.join(dir, 'index.js'), "export {default} from './page.crv'\n")
+
+  await new Promise((resolve, reject) => {
+    webpack({
+      mode: 'production', target: 'node', context: dir,
+      entry: './index.js', output: { path: path.join(dir, 'dist'), filename: 'bundle.cjs', library: { type: 'commonjs2' } },
+      module: { rules: [{ test: /\.crv$/, use: [{ loader: path.join(root, 'loader.cjs') }] }] },
+    }, (error, stats) => {
+      if (error) return reject(error)
+      if (stats.hasErrors()) return reject(new Error(stats.toString({ errors: true, warnings: true })))
+      resolve()
+    })
+  })
+
+  const result = await import(`${path.join(dir, 'dist', 'bundle.cjs')}?t=${Date.now()}`)
+  assert.match(result.default.default, /Included text\./)
+})
