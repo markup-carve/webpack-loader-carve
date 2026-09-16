@@ -18,7 +18,10 @@ module.exports = function carveLoader(source) {
       : null
     let html
     if (options.includes ?? true) {
-      const root = require('node:path').resolve(options.includeRoot ?? loader.rootContext)
+      // A configured root reaches the resolver unchanged, so its absolute-path
+      // refusal (PART 9 section 19, I10) still fires. Resolving it here would
+      // root containment at the process working directory instead.
+      const root = options.includeRoot ?? loader.rootContext
       const expanded = carve.expandIncludes(document, text, {
         resolve: node.fileSystemResolver(root),
         sourcePath: loader.resourcePath,
@@ -39,7 +42,10 @@ module.exports = function carveLoader(source) {
       'export default html;',
       '',
     ].join('\n'))
-  }, done)
+    // The rejection handler must sit AFTER the fulfillment handler: as a second
+    // argument it catches only the dynamic imports, so a refused root threw into
+    // an unhandled rejection and the build hung with `done` never called.
+  }).catch(done)
 }
 
 module.exports.raw = false

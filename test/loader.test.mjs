@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import webpack from 'webpack'
 
@@ -55,4 +56,22 @@ test('a build expands an include relative to its document', async () => {
 
   const result = await import(`${path.join(dir, 'dist', 'bundle.cjs')}?t=${Date.now()}`)
   assert.match(result.default.default, /Included text\./)
+})
+
+test('refuses a relative include root instead of rooting it at the cwd', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-relroot-'))
+  const { default: carveLoader } = await import(pathToFileURL(path.join(root, 'loader.cjs')).href)
+
+  const error = await new Promise((resolve) => {
+    carveLoader.call({
+      async: () => (err) => resolve(err),
+      getOptions: () => ({ includeRoot: '..' }),
+      rootContext: dir,
+      resourcePath: path.join(dir, 'page.crv'),
+      addDependency() {},
+      emitWarning() {},
+    }, '{{ shared.crv }}')
+  })
+
+  assert.match(error.message, /absolute path/)
 })
