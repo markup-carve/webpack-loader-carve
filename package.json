@@ -1,6 +1,6 @@
 {
   "name": "@markup-carve/webpack-loader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Webpack and Next.js loader for importing Carve markup files",
   "license": "MIT",
   "author": "Mark Scherer",
