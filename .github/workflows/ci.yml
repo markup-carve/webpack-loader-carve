@@ -4,9 +4,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+# Every job below carries a timeout-minutes bound, so a hung step fails in
+# minutes instead of running to GitHub's 360-minute default.
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         node-version: ['20', '22']
