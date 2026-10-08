@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- A render loss the engine records is emitted as a webpack warning carrying its
+  code and source position. Rendering went through `renderDocument` and
+  `carveToHtml`, which return a string and drop the report, so a blanked
+  `javascript:` destination, a flattened ruby annotation or a raw block for
+  another format left no trace in the build log. Include warnings already left
+  through `emitWarning`; these use the same channel.
+
+### Changed
+
+- Tested against `@markup-carve/carve` 0.1.10. The declared range `^0.1.7`
+  already resolved it, but the committed lockfile held 0.1.7, so CI had never
+  run the engine a consumer installs. Three engine behaviors this loader reaches
+  now have tests driven through a real webpack build: a case-only
+  cross-reference stays literal, an include renames every colliding id rather
+  than only a heading id, and a denied destination scheme is reported.
+
 ## 0.1.1
 
 - `{{ path }}` include directives now expand, resolved relative to the importing
