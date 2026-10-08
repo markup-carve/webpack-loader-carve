@@ -16,6 +16,22 @@ module.exports = function carveLoader(source) {
     const frontmatter = document.frontmatter
       ? { format: document.frontmatter.format, content: document.frontmatter.content }
       : null
+    /**
+     * A render loss is the engine saying it dropped something the author wrote:
+     * a blanked `javascript:` destination, a flattened ruby annotation, a raw
+     * block for another format. Without this the output just quietly lacks it.
+     */
+    const report = (result) => {
+      for (const loss of result.losses) {
+        const at = loss.pos ? ` (line ${loss.pos.startLine}, column ${loss.pos.startColumn})` : ''
+        loader.emitWarning(new Error(`${loss.message} [${loss.code}]${at}`))
+      }
+      if (result.truncated) {
+        loader.emitWarning(new Error(`${result.totalLosses} render losses in total; the rest were not reported`))
+      }
+      return result.value
+    }
+
     let html
     if (options.includes ?? true) {
       // A configured root reaches the resolver unchanged, so its absolute-path
@@ -31,9 +47,9 @@ module.exports = function carveLoader(source) {
         if (dependency.resolved) loader.addDependency(dependency.id)
       }
       for (const warning of expanded.warnings) loader.emitWarning(new Error(warning.message))
-      html = carve.renderDocument(carve.resolve(expanded.doc), carveOptions)
+      html = report(carve.renderDocumentWithReport(carve.resolve(expanded.doc), carveOptions))
     } else {
-      html = carve.carveToHtml(text, carveOptions)
+      html = report(carve.carveToHtmlWithReport(text, carveOptions))
     }
     done(null, [
       `export const source = ${JSON.stringify(text)};`,
