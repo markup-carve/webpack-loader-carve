@@ -9,7 +9,7 @@
   `carveToHtml`, which return a string and drop the report, so a blanked
   `javascript:` destination, a flattened ruby annotation or a raw block for
   another format left no trace in the build log. Include warnings already left
-  through `emitWarning`; these use the same channel.
+  through `emitWarning`; these use the same channel (#16).
 
 ### Changed
 
@@ -18,7 +18,7 @@
   run the engine a consumer installs. Three engine behaviors this loader reaches
   now have tests driven through a real webpack build: a case-only
   cross-reference stays literal, an include renames every colliding id rather
-  than only a heading id, and a denied destination scheme is reported.
+  than only a heading id, and a denied destination scheme is reported (#16).
 
 ## 0.1.1
 
