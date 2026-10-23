@@ -32,6 +32,12 @@ module.exports = function carveLoader(source) {
       return result.value
     }
 
+    // Names the file only when the finding is not in the document being loaded.
+    const located = (warning) => {
+      const file = warning.file && warning.file !== loader.resourcePath ? `${warning.file}, ` : ''
+      return `${warning.message} [${warning.rule}] (${file}line ${warning.line}, column ${warning.column})`
+    }
+
     let html
     let lintIncludes
     const reported = new Set()
@@ -50,7 +56,7 @@ module.exports = function carveLoader(source) {
       }
       for (const warning of expanded.warnings) {
         reported.add(`${warning.rule}\0${warning.message}`)
-        loader.emitWarning(new Error(warning.message))
+        loader.emitWarning(new Error(located(warning)))
       }
       html = report(carve.renderDocumentWithReport(carve.resolve(expanded.doc), carveOptions))
     } else {
@@ -60,8 +66,7 @@ module.exports = function carveLoader(source) {
       // Include failures were already reported by the expansion above.
       for (const finding of carve.lintCarve(text, { includes: lintIncludes, extensions: carveOptions.extensions })) {
         if (reported.has(`${finding.rule}\0${finding.message}`)) continue
-        const file = finding.file ? `${finding.file}, ` : ''
-        loader.emitWarning(new Error(`${finding.message} [${finding.rule}] (${file}line ${finding.line}, column ${finding.column})`))
+        loader.emitWarning(new Error(located(finding)))
       }
     }
     done(null, [

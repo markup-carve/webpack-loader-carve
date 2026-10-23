@@ -13,6 +13,9 @@
 ### Changed
 
 - Requires `@markup-carve/carve` 0.1.13 or later.
+- Include warnings carry their rule id, line and column, and name the included
+  file when the failing directive sits in one rather than in the loaded
+  document.
 
 ## [0.1.2] - 2026-10-08
 

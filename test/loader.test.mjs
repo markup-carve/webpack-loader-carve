@@ -146,3 +146,18 @@ test('lints included files and reports an include failure once', async () => {
   assert.equal(warnings.filter((w) => w.includes('missing.crv')).length, 1)
   assert.ok(warnings.some((w) => w.includes('[broken-fragment-link]') && w.includes(path.join(dir, 'shared.crv'))))
 })
+
+test('an include warning names the included file it arose in', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-nested-'))
+  const shared = path.join(dir, 'shared.crv')
+  await writeFile(shared, 'Text.\n\n{{ missing.crv }}\n')
+  for (const lint of [false, true]) {
+    const { warnings } = await runLoader(dir, { lint }, '{{ shared.crv }}\n\n{{ gone.crv }}\n')
+    assert.deepEqual(warnings.filter((w) => w.includes('missing.crv')), [
+      `Include "missing.crv" could not be resolved. [include-unresolved] (${shared}, line 3, column 1)`,
+    ])
+    assert.deepEqual(warnings.filter((w) => w.includes('gone.crv')), [
+      'Include "gone.crv" could not be resolved. [include-unresolved] (line 3, column 1)',
+    ])
+  }
+})
