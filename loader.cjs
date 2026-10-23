@@ -33,23 +33,36 @@ module.exports = function carveLoader(source) {
     }
 
     let html
+    let lintIncludes
+    const reported = new Set()
     if (options.includes ?? true) {
       // A configured root reaches the resolver unchanged, so its absolute-path
       // refusal (PART 9 section 19, I10) still fires. Resolving it here would
       // root containment at the process working directory instead.
       const root = options.includeRoot ?? loader.rootContext
+      lintIncludes = { resolve: node.fileSystemResolver(root), sourcePath: loader.resourcePath }
       const expanded = carve.expandIncludes(document, text, {
-        resolve: node.fileSystemResolver(root),
-        sourcePath: loader.resourcePath,
+        ...lintIncludes,
         extensions: carveOptions.extensions,
       })
       for (const dependency of expanded.dependencies) {
         if (dependency.resolved) loader.addDependency(dependency.id)
       }
-      for (const warning of expanded.warnings) loader.emitWarning(new Error(warning.message))
+      for (const warning of expanded.warnings) {
+        reported.add(`${warning.rule}\0${warning.message}`)
+        loader.emitWarning(new Error(warning.message))
+      }
       html = report(carve.renderDocumentWithReport(carve.resolve(expanded.doc), carveOptions))
     } else {
       html = report(carve.carveToHtmlWithReport(text, carveOptions))
+    }
+    if (options.lint) {
+      // Include failures were already reported by the expansion above.
+      for (const finding of carve.lintCarve(text, { includes: lintIncludes, extensions: carveOptions.extensions })) {
+        if (reported.has(`${finding.rule}\0${finding.message}`)) continue
+        const file = finding.file ? `${finding.file}, ` : ''
+        loader.emitWarning(new Error(`${finding.message} [${finding.rule}] (${file}line ${finding.line}, column ${finding.column})`))
+      }
     }
     done(null, [
       `export const source = ${JSON.stringify(text)};`,

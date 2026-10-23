@@ -62,6 +62,29 @@ to the importing `.crv` file and cannot escape webpack's `rootContext`. Set
 absolute containment root. Included files are registered as webpack
 dependencies and trigger rebuilds when they change.
 
+A directive can take one named region of a file instead of the whole file. In
+a Carve file the region sits between `%% #region intro` and `%% #endregion`. A
+source file can be included as a code block, with region markers in its own
+comment syntax (`// #region demo` ... `// #endregion`):
+
+```text
+{{ shared.crv @region:intro }}
+{{ src/example.ts @region:demo @code:ts }}
+```
+
+A missing or unpaired region is reported as a webpack warning.
+
+Render losses (a blanked `javascript:` link, a dropped raw block) are always
+emitted as webpack warnings. Set `lint: true` to also emit the engine's lint
+findings, such as a link to a fragment no heading defines or a reference link
+with no definition. Findings in included files name that file:
+
+```js
+{ loader: '@markup-carve/webpack-loader', options: { lint: true } }
+```
+
+The loader needs `@markup-carve/carve` 0.1.13 or later.
+
 Then render an import from a Server Component:
 
 ```jsx
