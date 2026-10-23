@@ -1,21 +1,21 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.3] - 2026-10-23
 
 ### Added
 
 - `lint: true` emits the engine's lint findings as webpack warnings, including
-  findings in included files. Off by default.
+  findings in included files. Off by default (#23).
 - An include directive can take one named region of a file, either Carve
   content or a source file included as a code block; the README documents the
-  marker forms.
+  marker forms (#23).
 
 ### Changed
 
-- Requires `@markup-carve/carve` 0.1.13 or later.
+- Requires `@markup-carve/carve` 0.1.13 or later (#23).
 - Include warnings carry their rule id, line and column, and name the included
   file when the failing directive sits in one rather than in the loaded
-  document.
+  document (#23).
 
 ## [0.1.2] - 2026-10-08
 
