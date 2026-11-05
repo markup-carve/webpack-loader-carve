@@ -98,3 +98,33 @@ test('a render loss in an included file names that file', async () => {
   assert.ok(losses.some((message) => /\(.*child\.crv, line 5, column 7\)$/.test(message)), JSON.stringify(losses))
   assert.ok(losses.some((message) => message.endsWith('\nBlanked a denied destination scheme [destination-denied] (line 5, column 1)')), JSON.stringify(losses))
 })
+
+test('braced cell alignment renders and the glued 0.1.13 prefix is reported', async () => {
+  // markup-carve/carve#5091: alignment moved into the cell's braces; `|=>`
+  // still reads the same until 0.2.0, and lint names the new spelling.
+  const braced = await build({ 'page.crv': '|= Item |={>} Price |\n| Tea | 3 |\n' }, { lint: true })
+  assert.match(braced.html, /<th scope="col" style="text-align: right;">Price<\/th>/)
+  assert.deepEqual(braced.warnings, [])
+
+  const glued = await build({ 'page.crv': '|= Item |=> Price |\n| Tea | 3 |\n' }, { lint: true })
+  assert.equal(glued.html, braced.html)
+  assert.ok(glued.warnings.some((message) => message.includes('[deprecated-cell-alignment] (line 1, column 11)')), JSON.stringify(glued.warnings))
+})
+
+test('a lone --- on the first line opens frontmatter to the end of the document', async () => {
+  // markup-carve/carve#5016: with no closer the opener claims the rest, so the
+  // page renders nothing. Engine 0.1.15 read it as a thematic break.
+  const { html } = await build({ 'page.crv': '---\n\n# Title\n' })
+  assert.equal(html, '')
+})
+
+test('a table include selects records with @rows and columns with @cols', async () => {
+  const { html, warnings } = await build({
+    'data.csv': 'Name,Qty,Note\nApple,12,fresh\nPear,3,ripe\n',
+    'page.crv': '{table}\n{{ data.csv @code:csv @rows:1-2 @cols:"Qty,Name" }}\n',
+  })
+  assert.match(html, /<tr><th scope="col">Qty<\/th><th scope="col">Name<\/th><\/tr>/)
+  assert.match(html, /<tr><td>12<\/td><td>Apple<\/td><\/tr>/)
+  assert.doesNotMatch(html, /Pear|fresh/)
+  assert.deepEqual(warnings, [])
+})
