@@ -23,7 +23,10 @@ module.exports = function carveLoader(source) {
      */
     const report = (result) => {
       for (const loss of result.losses) {
-        const at = loss.pos ? ` (line ${loss.pos.startLine}, column ${loss.pos.startColumn})` : ''
+        // Engine 0.1.15 carries an included file on `pos.file`, later engines on `loss.file`.
+        const file = loss.file ?? loss.pos?.file
+        const named = file && file !== loader.resourcePath ? `${file}, ` : ''
+        const at = loss.pos ? ` (${named}line ${loss.pos.startLine}, column ${loss.pos.startColumn})` : ''
         loader.emitWarning(new Error(`${loss.message} [${loss.code}]${at}`))
       }
       if (result.truncated) {

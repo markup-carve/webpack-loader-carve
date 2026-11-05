@@ -77,13 +77,14 @@ A missing or unpaired region is reported as a webpack warning.
 Render losses (a blanked `javascript:` link, a dropped raw block) are always
 emitted as webpack warnings. Set `lint: true` to also emit the engine's lint
 findings, such as a link to a fragment no heading defines or a reference link
-with no definition. Findings in included files name that file:
+with no definition. Findings and render losses in included files name that
+file:
 
 ```js
 { loader: '@markup-carve/webpack-loader', options: { lint: true } }
 ```
 
-The loader needs `@markup-carve/carve` 0.1.13 or later.
+The loader needs `@markup-carve/carve` 0.1.15 or later and Node.js 20 or later.
 
 Then render an import from a Server Component:
 
