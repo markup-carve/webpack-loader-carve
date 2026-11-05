@@ -84,3 +84,17 @@ test('a blanked destination scheme reaches the webpack log', async () => {
     )
   }
 })
+
+test('a render loss in an included file names that file', async () => {
+  // The loss carries the included file's own line; without the file name the
+  // warning points at a line of the importing document that holds no link.
+  const { warnings } = await build({
+    'child.crv': 'One.\n\nTwo.\n\nThree [x](javascript:alert(1)).\n',
+    'page.crv': 'Top.\n\n{{ child.crv }}\n\n[y](javascript:1)\n',
+  })
+  const losses = warnings.filter((message) => message.includes('[destination-denied]'))
+
+  assert.equal(losses.length, 2, JSON.stringify(warnings))
+  assert.ok(losses.some((message) => /\(.*child\.crv, line 5, column 7\)$/.test(message)), JSON.stringify(losses))
+  assert.ok(losses.some((message) => message.endsWith('\nBlanked a denied destination scheme [destination-denied] (line 5, column 1)')), JSON.stringify(losses))
+})
