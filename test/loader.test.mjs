@@ -161,3 +161,39 @@ test('an include warning names the included file it arose in', async () => {
     ])
   }
 })
+
+test('lint hints stay out of the build log unless asked for', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-lint-hint-'))
+  const source = 'Text.\n\n---\n\nSee [x](#nope).\n'
+  const quiet = await runLoader(dir, { lint: true, includes: false }, source)
+  assert.deepEqual(quiet.warnings.map((w) => w.match(/\[([a-z-]+)\]/)[1]), ['broken-fragment-link'])
+
+  const { warnings } = await runLoader(dir, { lint: { hints: true }, includes: false }, source)
+  assert.ok(warnings.some((w) => /\[thematic-break-spelling\] \(line 3, column 1\)$/.test(w)), JSON.stringify(warnings))
+})
+
+test('lint options turn on opt-in rules and skip ignored files', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-lint-options-'))
+  await writeFile(path.join(dir, 'vendor.crv'), 'Bad [l](#zzz).\n')
+  const source = '{{ vendor.crv }}\n\nSee [x](#nope).\n'
+
+  const all = await runLoader(dir, { lint: true }, source)
+  assert.equal(all.warnings.filter((w) => w.includes('[broken-fragment-link]')).length, 2)
+
+  const { warnings } = await runLoader(dir, { lint: { ignoredFiles: ['vendor.crv'] } }, source)
+  assert.deepEqual(warnings.filter((w) => w.includes('[broken-fragment-link]')).length, 1)
+  assert.ok(!warnings.some((w) => w.includes('vendor.crv')), JSON.stringify(warnings))
+
+  const page = await runLoader(dir, { lint: { ignoredFiles: ['page.crv'] }, includes: false }, 'See [x](#nope).\n')
+  assert.deepEqual(page.warnings, [])
+})
+
+test('lint enabledRules turns on an opt-in authoring rule', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-lint-enabled-'))
+  const source = '# Top\n\nRead [click here](#Top).\n'
+  const quiet = await runLoader(dir, { lint: true, includes: false }, source)
+  assert.deepEqual(quiet.warnings, [])
+
+  const { warnings } = await runLoader(dir, { lint: { enabledRules: ['non-descriptive-link-text'] }, includes: false }, source)
+  assert.ok(warnings.some((w) => w.includes('[non-descriptive-link-text] (line 3, column 6)')), JSON.stringify(warnings))
+})

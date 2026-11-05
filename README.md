@@ -28,7 +28,9 @@ import html, { source, frontmatter } from './document.crv'
 
 The default export and named `html` export contain rendered HTML. `source`
 contains the original document and `frontmatter` contains Carve's raw
-`{format, content}` metadata object (or `null`). Rendering happens during the
+`{format, content}` metadata object (or `null`). A `---` on the first line with
+no closing `---` opens frontmatter that runs to the end of the file, so start a
+document with `***` when you mean a thematic break. Rendering happens during the
 build; the Carve engine is not sent to the browser.
 
 Options are passed under `carveOptions`:
@@ -74,6 +76,15 @@ comment syntax (`// #region demo` ... `// #endregion`):
 
 A missing or unpaired region is reported as a webpack warning.
 
+A CSV or TSV include marked `{table}` becomes a table. `@rows:N-M` selects
+records (counted from 1, header included) and `@cols` picks and orders columns
+by header name:
+
+```text
+{table}
+{{ prices.csv @code:csv @rows:1-10 @cols:"Item,Price" }}
+```
+
 Render losses (a blanked `javascript:` link, a dropped raw block) are always
 emitted as webpack warnings. Set `lint: true` to also emit the engine's lint
 findings, such as a link to a fragment no heading defines or a reference link
@@ -82,6 +93,21 @@ file:
 
 ```js
 { loader: '@markup-carve/webpack-loader', options: { lint: true } }
+```
+
+`lint` also takes an object. `enabledRules` turns on opt-in authoring rules,
+`ignoredFiles` skips files (paths relative to webpack's `rootContext`), and
+`hints: true` adds `Hint` findings such as a non-canonical thematic break
+spelling, which are left out by default:
+
+```js
+options: {
+  lint: {
+    enabledRules: ['non-descriptive-link-text'],
+    ignoredFiles: ['content/vendor/legacy.crv'],
+    hints: true,
+  },
+}
 ```
 
 The loader needs `@markup-carve/carve` 0.1.15 or later and Node.js 20 or later.

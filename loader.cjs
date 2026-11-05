@@ -1,5 +1,7 @@
 'use strict'
 
+const path = require('node:path')
+
 /**
  * Compile a .crv resource to an ES module. Dynamic import keeps this CommonJS
  * loader compatible with webpack while loading carve-js's ESM entry point.
@@ -66,8 +68,18 @@ module.exports = function carveLoader(source) {
       html = report(carve.carveToHtmlWithReport(text, carveOptions))
     }
     if (options.lint) {
-      // Include failures were already reported by the expansion above.
-      for (const finding of carve.lintCarve(text, { includes: lintIncludes, extensions: carveOptions.extensions })) {
+      const lint = options.lint === true ? {} : options.lint
+      const findings = carve.lintCarve(text, {
+        includes: lintIncludes,
+        extensions: carveOptions.extensions,
+        fileId: loader.resourcePath,
+        enabledRules: lint.enabledRules,
+        ignoredFiles: lint.ignoredFiles?.map((file) => path.resolve(loader.rootContext, file)),
+      })
+      for (const finding of findings) {
+        // Hints name a canonical spelling, not a defect; one per `---` would bury real warnings.
+        if (finding.severity === 'Hint' && !lint.hints) continue
+        // Include failures were already reported by the expansion above.
         if (reported.has(`${finding.rule}\0${finding.message}`)) continue
         loader.emitWarning(new Error(located(finding)))
       }
