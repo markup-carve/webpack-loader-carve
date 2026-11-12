@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.4] - 2026-11-12
+
+### Added
+
+- `lint` also takes an object with `enabledRules`, `ignoredFiles` and `hints`;
+  advisory `Hint` findings (such as `thematic-break-spelling` on a `---` break)
+  are dropped unless `hints: true` (#27).
+
+### Changed
+
+- Requires `@markup-carve/carve` 0.1.16 or later and Node.js 20 or later
+  (#26, #27, #30).
+- Lint rule `a11y/heading-jump` is no longer an alias; use
+  `heading-level-skip`. The engine reports the old `|=>` cell alignment as
+  `deprecated-cell-alignment` (write `|={>}`).
+
+### Fixed
+
+- A render loss inside an included file names that file (#26).
+
 ## [0.1.3] - 2026-10-23
 
 ### Added
