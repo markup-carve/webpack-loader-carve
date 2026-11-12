@@ -110,7 +110,7 @@ options: {
 }
 ```
 
-The loader needs `@markup-carve/carve` 0.1.15 or later and Node.js 20 or later.
+The loader needs `@markup-carve/carve` 0.1.16 or later and Node.js 20 or later.
 
 Then render an import from a Server Component:
 
