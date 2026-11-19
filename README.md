@@ -115,7 +115,7 @@ options: {
 ```
 
 The 0.2 branch pins an unreleased Carve engine commit through npm's GitHub
-dependency support. The loader imports its `v2` and `v2/node` entries. Node.js
+dependency support. The loader imports the package root and its `node` entry. Node.js
 20 or later is required. Run `npm ci` to build the pinned engine from source.
 
 Then render an import from a Server Component:

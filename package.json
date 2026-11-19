@@ -21,7 +21,7 @@
     "test:next": "next build example --webpack",
     "test:all": "npm test && npm run test:next"
   },
-  "dependencies": {"@markup-carve/carve": "github:markup-carve/carve-js#c1dca054d79cb501dc9df43fc8b11956df5ec345"},
+  "dependencies": {"@markup-carve/carve": "github:markup-carve/carve-js#11de2ad3652448277905e0980e72a49936139c0b"},
   "devDependencies": {
     "next": "^16.3.2",
     "react": "^19.2.0",

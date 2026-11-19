@@ -8,7 +8,7 @@ module.exports = function carveLoader(source) {
   const options = typeof this.getOptions === 'function' ? this.getOptions() : {}
   const loader = this
 
-  Promise.all([import('@markup-carve/carve/v2'), import('@markup-carve/carve/v2/node')]).then(([carve, node]) => {
+  Promise.all([import('@markup-carve/carve'), import('@markup-carve/carve/node')]).then(([carve, node]) => {
     const text = source.toString()
     const carveOptions = { rawHtml: false, ...(options.carveOptions ?? {}) }
     const sourceTexts = new Map([[loader.resourcePath, text]])

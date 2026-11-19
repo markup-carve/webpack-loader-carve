@@ -8,6 +8,8 @@
   Includes, render losses, and lint findings use the 0.2 diagnostics contract.
 - `carveOptions.rawHtml` replaces `allowRawHtml`. Raw HTML remains disabled by
   default.
+- Engine: pinned to the renamed carve-js `next2` (11de2ad). The loader imports
+  `@markup-carve/carve` and `@markup-carve/carve/node`; the `/v2` entries are gone.
 
 ## [0.1.4] - 2026-11-12
 
