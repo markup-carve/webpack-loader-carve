@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The `next2` loader uses the Carve 0.2 public API from a pinned engine commit.
+  Includes, render losses, and lint findings use the 0.2 diagnostics contract.
+- `carveOptions.rawHtml` replaces `allowRawHtml`. Raw HTML remains disabled by
+  default.
+
 ## [0.1.4] - 2026-11-12
 
 ### Added
