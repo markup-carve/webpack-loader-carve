@@ -28,17 +28,18 @@ import html, { source, frontmatter } from './document.crv'
 
 The default export and named `html` export contain rendered HTML. `source`
 contains the original document and `frontmatter` contains Carve's raw
-`{format, content}` metadata object (or `null`). A `---` on the first line with
-no closing `---` opens frontmatter that runs to the end of the file, so start a
-document with `***` when you mean a thematic break. Rendering happens during the
-build; the Carve engine is not sent to the browser.
+`{format, content}` metadata object (or `null`). In Carve 0.2, frontmatter is
+read from the document tree's `frontmatter` node. A `---` on the first line with
+no closing `---` opens frontmatter to the end of the file, so start a document
+with `***` when you mean a thematic break. Rendering happens during the build;
+the Carve engine is not sent to the browser.
 
 Options are passed under `carveOptions`:
 
 ```js
 { test: /\.crv$/, use: [{
   loader: '@markup-carve/webpack-loader',
-  options: { carveOptions: { allowRawHtml: false } },
+  options: { carveOptions: { rawHtml: false } },
 }] }
 ```
 
@@ -58,9 +59,10 @@ export default {
 }
 ```
 
-The loader expands `{{ path }}` directives by default. Paths resolve relative
-to the importing `.crv` file and cannot escape webpack's `rootContext`. Set
-`includes: false` to leave directives literal, or set `includeRoot` to another
+The loader expands `{{ path }}` directives by default through the Carve 0.2
+include resolver. Paths resolve relative to the importing `.crv` file and cannot
+escape webpack's `rootContext`. Set `includes: false` to leave directives
+literal, or set `includeRoot` to another
 absolute containment root. Included files are registered as webpack
 dependencies and trigger rebuilds when they change.
 
@@ -85,8 +87,9 @@ by header name:
 {{ prices.csv @code:csv @rows:1-10 @cols:"Item,Price" }}
 ```
 
-Render losses (a blanked `javascript:` link, a dropped raw block) are always
-emitted as webpack warnings. Set `lint: true` to also emit the engine's lint
+Parse diagnostics and render losses (a blanked `javascript:` link, a dropped raw
+block) are emitted as webpack warnings. A failed include reports its cause and
+the resulting render loss. Set `lint: true` to also emit the engine's lint
 findings, such as a link to a fragment no heading defines or a reference link
 with no definition. Findings and render losses in included files name that
 file:
@@ -95,9 +98,10 @@ file:
 { loader: '@markup-carve/webpack-loader', options: { lint: true } }
 ```
 
-`lint` also takes an object. `enabledRules` turns on opt-in authoring rules,
-`ignoredFiles` skips files (paths relative to webpack's `rootContext`), and
-`hints: true` adds `Hint` findings such as a non-canonical thematic break
+`lint` also takes an object. `enabledRules` turns on opt-in authoring rules
+through the 0.2 `rules` map, `ignoredFiles` skips files (paths relative to
+webpack's `rootContext`), and `hints: true` adds `Hint` findings such as a
+non-canonical thematic break
 spelling, which are left out by default:
 
 ```js
@@ -110,7 +114,9 @@ options: {
 }
 ```
 
-The loader needs `@markup-carve/carve` 0.1.16 or later and Node.js 20 or later.
+The 0.2 branch pins an unreleased Carve engine commit through npm's GitHub
+dependency support. The loader imports the package root and its `node` entry. Node.js
+20 or later is required. Run `npm ci` to build the pinned engine from source.
 
 Then render an import from a Server Component:
 
@@ -127,8 +133,12 @@ Next.js 16 uses Turbopack by default. Run `next dev --webpack` and
 webpack loaders, but this package only claims the webpack path until its ESM
 dependency loading has been verified in Turbopack itself.
 
-Because rendering produces HTML, use Carve's `allowRawHtml: false` option when
-authors are not trusted. React's `dangerouslySetInnerHTML` does not sanitize.
+Raw HTML is disabled by default. Set `carveOptions.rawHtml: true` only for
+trusted authors; the engine's default URL policy still denies unsafe schemes.
+Use `carveOptions.urlPolicy` to supply an explicit scheme allow or deny list.
+Carve 0.2 extension definitions go in `carveOptions.extensions`, with their
+HTML renderers in `carveOptions.renderers`; the extension API is provisional.
+React's `dangerouslySetInnerHTML` does not sanitize.
 
 ## TypeScript
 

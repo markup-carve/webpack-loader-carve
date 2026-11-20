@@ -2,98 +2,97 @@
 
 const path = require('node:path')
 
-/**
- * Compile a .crv resource to an ES module. Dynamic import keeps this CommonJS
- * loader compatible with webpack while loading carve-js's ESM entry point.
- */
+/** Compile a Carve document to an ES module for webpack and Next.js. */
 module.exports = function carveLoader(source) {
   const done = this.async()
   const options = typeof this.getOptions === 'function' ? this.getOptions() : {}
   const loader = this
 
   Promise.all([import('@markup-carve/carve'), import('@markup-carve/carve/node')]).then(([carve, node]) => {
-    const carveOptions = options.carveOptions ?? {}
     const text = source.toString()
-    const document = carve.parse(text, carveOptions)
-    const frontmatter = document.frontmatter
-      ? { format: document.frontmatter.format, content: document.frontmatter.content }
-      : null
-    /**
-     * A render loss is the engine saying it dropped something the author wrote:
-     * a blanked `javascript:` destination, a flattened ruby annotation, a raw
-     * block for another format. Without this the output just quietly lacks it.
-     */
-    const report = (result) => {
-      for (const loss of result.losses) {
-        // Engine 0.1.15 carries an included file on `pos.file`, later engines on `loss.file`.
-        const file = loss.file ?? loss.pos?.file
-        const named = file && file !== loader.resourcePath ? `${file}, ` : ''
-        const at = loss.pos ? ` (${named}line ${loss.pos.startLine}, column ${loss.pos.startColumn})` : ''
-        loader.emitWarning(new Error(`${loss.message} [${loss.code}]${at}`))
-      }
-      if (result.truncated) {
-        loader.emitWarning(new Error(`${result.totalLosses} render losses in total; the rest were not reported`))
-      }
-      return result.value
-    }
-
-    // Names the file only when the finding is not in the document being loaded.
-    const located = (warning) => {
-      const file = warning.file && warning.file !== loader.resourcePath ? `${warning.file}, ` : ''
-      return `${warning.message} [${warning.rule}] (${file}line ${warning.line}, column ${warning.column})`
-    }
-
-    let html
-    let lintIncludes
-    const reported = new Set()
+    const carveOptions = { rawHtml: false, ...(options.carveOptions ?? {}) }
+    const sourceTexts = new Map([[loader.resourcePath, text]])
+    let includes
     if (options.includes ?? true) {
-      // A configured root reaches the resolver unchanged, so its absolute-path
-      // refusal (PART 9 section 19, I10) still fires. Resolving it here would
-      // root containment at the process working directory instead.
       const root = options.includeRoot ?? loader.rootContext
-      lintIncludes = { resolve: node.fileSystemResolver(root), sourcePath: loader.resourcePath }
-      const expanded = carve.expandIncludes(document, text, {
-        ...lintIncludes,
-        extensions: carveOptions.extensions,
-      })
-      for (const dependency of expanded.dependencies) {
-        if (dependency.resolved) loader.addDependency(dependency.id)
+      if (!path.isAbsolute(root)) throw new Error('includeRoot must be an absolute path')
+      const resolve = node.fileSystemResolver(root)
+      includes = {
+        file: path.relative(root, loader.resourcePath).split(path.sep).join('/'),
+        resolver(request) {
+          const answer = resolve(request)
+          if ('id' in answer) {
+            const file = path.resolve(root, answer.id)
+            sourceTexts.set(file, typeof answer.text === 'string' ? answer.text : new TextDecoder().decode(answer.text))
+          }
+          return answer
+        },
       }
-      for (const warning of expanded.warnings) {
-        reported.add(`${warning.rule}\0${warning.message}`)
-        loader.emitWarning(new Error(located(warning)))
-      }
-      html = report(carve.renderDocumentWithReport(carve.resolve(expanded.doc), carveOptions))
-    } else {
-      html = report(carve.carveToHtmlWithReport(text, carveOptions))
     }
+
+    const { document, diagnostics: parseDiagnostics, suppressedDiagnostics: parseSuppressed } = carve.parseWithDiagnostics(text, {
+      headingIds: carveOptions.headingIds,
+      extensions: carveOptions.extensions,
+      includes,
+    })
+    for (const dependency of carve.includeDependencies(document)) {
+      if (dependency.read) loader.addDependency(path.resolve(options.includeRoot ?? loader.rootContext, dependency.file))
+    }
+
+    const front = document.children.find((child) => child.type === 'frontmatter')
+    const frontmatter = front ? { format: front.format, content: front.value } : null
+    // Includes have already been expanded in the tree. Render that same tree so
+    // the HTML, dependency list, and parse diagnostics describe one parse.
+    const { includes: _ignored, ...renderOptions } = carveOptions
+    const rendered = carve.renderWithDiagnostics(document, renderOptions)
+    const reported = new Set()
+
+    const located = (diagnostic) => {
+      const file = diagnostic.file
+        ? path.resolve(options.includeRoot ?? loader.rootContext, diagnostic.file)
+        : loader.resourcePath
+      const named = file !== loader.resourcePath ? `${file}, ` : ''
+      const input = sourceTexts.get(file)
+      if (!diagnostic.range || input === undefined) return `${diagnostic.message} [${diagnostic.code}]`
+      const offset = carve.stringOffsetOfByte(input, diagnostic.range.startOffset)
+      const before = input.slice(0, offset)
+      const line = before.split('\n').length
+      // C2-A-141 columns count Unicode code points, while JavaScript slices
+      // and stringOffsetOfByte use UTF-16 code units.
+      const column = [...before.slice(before.lastIndexOf('\n') + 1)].length + 1
+      return `${diagnostic.message} [${diagnostic.code}] (${named}line ${line}, column ${column})`
+    }
+    const emit = (diagnostic) => {
+      const key = `${diagnostic.path ?? ''}\0${diagnostic.file ?? ''}\0${diagnostic.code}\0${diagnostic.message}\0${diagnostic.range?.startOffset ?? ''}`
+      if (reported.has(key)) return
+      reported.add(key)
+      loader.emitWarning(new Error(located(diagnostic)))
+    }
+    for (const diagnostic of [...parseDiagnostics, ...rendered.diagnostics]) emit(diagnostic)
+    const suppressed = parseSuppressed + rendered.suppressedDiagnostics
+    if (suppressed) loader.emitWarning(new Error(`${suppressed} more diagnostics were not reported`))
+
     if (options.lint) {
       const lint = options.lint === true ? {} : options.lint
-      const findings = carve.lintCarve(text, {
-        includes: lintIncludes,
-        extensions: carveOptions.extensions,
-        fileId: loader.resourcePath,
-        enabledRules: lint.enabledRules,
-        ignoredFiles: lint.ignoredFiles?.map((file) => path.resolve(loader.rootContext, file)),
-      })
-      for (const finding of findings) {
-        // Hints name a canonical spelling, not a defect; one per `---` would bury real warnings.
-        if (finding.severity === 'Hint' && !lint.hints) continue
-        // Include failures were already reported by the expansion above.
-        if (reported.has(`${finding.rule}\0${finding.message}`)) continue
-        loader.emitWarning(new Error(located(finding)))
+      const rules = Object.fromEntries((lint.enabledRules ?? []).map((id) => [id, 'on']))
+      const ignored = new Set((lint.ignoredFiles ?? []).map((file) => path.resolve(loader.rootContext, file)))
+      for (const diagnostic of carve.lint(text, { includes, extensions: carveOptions.extensions, rules })) {
+        if (diagnostic.severity === 'hint' && !lint.hints) continue
+        const file = diagnostic.file
+          ? path.resolve(options.includeRoot ?? loader.rootContext, diagnostic.file)
+          : loader.resourcePath
+        if (ignored.has(file)) continue
+        emit(diagnostic)
       }
     }
+
     done(null, [
       `export const source = ${JSON.stringify(text)};`,
-      `export const html = ${JSON.stringify(html)};`,
+      `export const html = ${JSON.stringify(rendered.html)};`,
       `export const frontmatter = ${JSON.stringify(frontmatter)};`,
       'export default html;',
       '',
     ].join('\n'))
-    // The rejection handler must sit AFTER the fulfillment handler: as a second
-    // argument it catches only the dynamic imports, so a refused root threw into
-    // an unhandled rejection and the build hung with `done` never called.
   }).catch(done)
 }
 
