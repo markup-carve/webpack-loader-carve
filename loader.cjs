@@ -70,7 +70,7 @@ module.exports = function carveLoader(source) {
     }
     for (const diagnostic of [...parseDiagnostics, ...rendered.diagnostics]) emit(diagnostic)
     const suppressed = parseSuppressed + rendered.suppressedDiagnostics
-    if (suppressed) loader.emitWarning(new Error(`${suppressed} include diagnostics were not reported`))
+    if (suppressed) loader.emitWarning(new Error(`${suppressed} more diagnostics were not reported`))
 
     if (options.lint) {
       const lint = options.lint === true ? {} : options.lint

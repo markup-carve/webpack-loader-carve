@@ -227,3 +227,11 @@ test('Carve 0.2 diagnostic columns count code points in included files', async (
   // C2-A-141: the emoji occupies one column and four UTF-8 bytes.
   assert.ok(warnings.some((warning) => warning.includes(`${file}, line 1, column 3)`)), JSON.stringify(warnings))
 })
+
+test('render diagnostics past the loss cap are counted, not dropped', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-cap-'))
+  const { warnings } = await runLoader(dir, { carveOptions: { maxLosses: 1 } }, '[a](javascript:1) [b](javascript:2) [c](javascript:3)\n')
+
+  assert.equal(warnings.filter((warning) => warning.includes('[destination-denied]')).length, 1)
+  assert.ok(warnings.includes('2 more diagnostics were not reported'), warnings.join('\n'))
+})
