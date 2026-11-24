@@ -8,7 +8,11 @@ module.exports = function carveLoader(source) {
   const options = typeof this.getOptions === 'function' ? this.getOptions() : {}
   const loader = this
 
-  Promise.all([import('@markup-carve/carve'), import('@markup-carve/carve/node')]).then(([carve, node]) => {
+  Promise.all([
+    import('@markup-carve/carve'),
+    import('@markup-carve/carve/node'),
+    options.upgradeHints ? import('@markup-carve/carve/upgrade') : undefined,
+  ]).then(([carve, node, upgrade]) => {
     const text = source.toString()
     const carveOptions = { rawHtml: false, ...(options.carveOptions ?? {}) }
     const sourceTexts = new Map([[loader.resourcePath, text]])
@@ -84,6 +88,13 @@ module.exports = function carveLoader(source) {
         if (ignored.has(file)) continue
         emit(diagnostic)
       }
+    }
+
+    if (upgrade) {
+      // Report rows can come with an unchanged source; `summary` rows are the self-check's own bookkeeping.
+      const hints = new Set(upgrade.upgrade(text).records.filter((record) => record.class !== 'summary').map((record) =>
+        `Carve 0.1 source: ${record.message} [${record.entry}]${record.line > 0 ? ` (line ${record.line})` : ''}`))
+      for (const hint of hints) loader.emitWarning(new Error(hint))
     }
 
     done(null, [
