@@ -139,6 +139,28 @@ test('does not lint by default', async () => {
   assert.deepEqual(warnings, [])
 })
 
+test('reports Carve 0.1 spellings as warnings when upgradeHints is enabled', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-upgrade-'))
+  const { output, warnings } = await runLoader(dir, { upgradeHints: true, includes: false }, 'Text\n# Heading\n\nSome _underline_ text.\n')
+  assert.deepEqual(warnings, [
+    'Carve 0.1 source: blank line put above a block that 0.2 reads as a lazy line directly under text [U-001] (line 2)',
+    'Carve 0.1 source: bare underline put in braces [U-065] (line 4)',
+  ])
+  assert.match(output, /Some _underline_ text\./)
+})
+
+test('reports an upgrade row that needs a person even when nothing is rewritten', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-upgrade-report-'))
+  const { warnings } = await runLoader(dir, { upgradeHints: true, includes: false }, '- a\n\n  b\n')
+  assert.deepEqual(warnings, ['Carve 0.1 source: a loose list with one item is tight in 0.2, its first paragraph loses the paragraph element [U-021] (line 1)'])
+})
+
+test('does not run the upgrade by default', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-noupgrade-'))
+  const { warnings } = await runLoader(dir, { includes: false }, 'Some _underline_ text.\n')
+  assert.deepEqual(warnings, [])
+})
+
 test('lints included files and reports the include cause and render loss', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-lint-include-'))
   await writeFile(path.join(dir, 'shared.crv'), 'Bad [l](#zzz).\n')
@@ -168,12 +190,12 @@ test('an include warning names the included file it arose in', async () => {
 
 test('lint hints stay out of the build log unless asked for', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-lint-hint-'))
-  const source = 'Text.\n\n---\n\nSee [x](#nope).\n'
+  const source = 'Text {.x} here.\n\nSee [x](#nope).\n'
   const quiet = await runLoader(dir, { lint: true, includes: false }, source)
   assert.deepEqual(quiet.warnings.map((w) => w.match(/\[([a-z-]+)\]/)[1]), ['broken-fragment-link'])
 
   const { warnings } = await runLoader(dir, { lint: { hints: true }, includes: false }, source)
-  assert.ok(warnings.some((w) => /\[thematic-break-spelling\] \(line 3, column 1\)$/.test(w)), JSON.stringify(warnings))
+  assert.ok(warnings.some((w) => /\[unattached-inline-attribute\] \(line 1, column 6\)$/.test(w)), JSON.stringify(warnings))
 })
 
 test('lint options turn on opt-in rules and skip ignored files', async () => {

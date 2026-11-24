@@ -100,9 +100,8 @@ file:
 
 `lint` also takes an object. `enabledRules` turns on opt-in authoring rules
 through the 0.2 `rules` map, `ignoredFiles` skips files (paths relative to
-webpack's `rootContext`), and `hints: true` adds `Hint` findings such as a
-non-canonical thematic break
-spelling, which are left out by default:
+webpack's `rootContext`), and `hints: true` adds `Hint` findings such as an
+inline attribute that attaches to nothing, which are left out by default:
 
 ```js
 options: {
@@ -115,7 +114,8 @@ options: {
 ```
 
 The 0.2 branch pins an unreleased Carve engine commit through npm's GitHub
-dependency support. The loader imports the package root and its `node` entry. Node.js
+dependency support. The loader imports the package root and its `node` entry,
+plus the `upgrade` entry when `upgradeHints` is on. Node.js
 20 or later is required. Run `npm ci` to build the pinned engine from source.
 
 Then render an import from a Server Component:
@@ -139,6 +139,28 @@ Use `carveOptions.urlPolicy` to supply an explicit scheme allow or deny list.
 Carve 0.2 extension definitions go in `carveOptions.extensions`, with their
 HTML renderers in `carveOptions.renderers`; the extension API is provisional.
 React's `dangerouslySetInnerHTML` does not sanitize.
+
+## Carve 0.1 sources
+
+A project moving from Carve 0.1 can set `upgradeHints: true`. The loader then
+runs the engine's 0.1 to 0.2 upgrade (`@markup-carve/carve/upgrade`) on each
+document and emits one webpack warning per distinct row of its report:
+
+```js
+{ loader: '@markup-carve/webpack-loader', options: { upgradeHints: true } }
+```
+
+```text
+Carve 0.1 source: bare underline put in braces [U-065] (line 4)
+```
+
+Rows such as `U-021` (a one-item loose list turns tight) need a person and
+rewrite nothing; they are reported too. The loader still renders the file as
+written. Run `carve upgrade` on the source to apply the rewrites, then turn the
+option off: the upgrade reads every input as 0.1 and on a 0.2 document would,
+for example, escape a `=` heading. Included files are not checked: the upgrade
+reads one document at a time, and an include may be code or CSV. `carve upgrade`
+over the source tree covers them. Default `false`.
 
 ## TypeScript
 

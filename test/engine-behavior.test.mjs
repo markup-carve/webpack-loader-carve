@@ -102,10 +102,12 @@ test('Carve 0.2 reads glued alignment as cell text and reports it', async () => 
   assert.match(braced.html, /<th scope="col" style="text-align: right;">Price<\/th>/)
   assert.deepEqual(braced.warnings, [])
 
-  const glued = await build({ 'page.crv': '|= Item |=> Price |\n| Tea | 3 |\n' }, { lint: true })
+  // deprecated-cell-alignment is an upgrade-only lint rule; upgradeHints reports the row.
+  const glued = await build({ 'page.crv': '|= Item |=> Price |\n| Tea | 3 |\n' }, { lint: true, upgradeHints: true })
   assert.notEqual(glued.html, braced.html)
   assert.match(glued.html, /<th scope="col">&gt; Price<\/th>/)
-  assert.ok(glued.warnings.some((message) => message.includes('[deprecated-cell-alignment] (line 1, column 11)')), JSON.stringify(glued.warnings))
+  assert.equal(glued.warnings.length, 1)
+  assert.ok(glued.warnings[0].endsWith('\nCarve 0.1 source: glued alignment mark put in braces [U-056] (line 1)'), glued.warnings[0])
 })
 
 test('a lone --- on the first line opens frontmatter to the end of the document', async () => {
