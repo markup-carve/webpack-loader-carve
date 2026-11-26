@@ -55,19 +55,16 @@ test('an exact cross-reference still resolves and clones the target text', async
   assert.match(html, /href="#Alpha-Beta">Alpha Beta/)
 })
 
-test('an include renames every colliding id, not only a heading id', async () => {
-  // Engine 0.1.7 emitted three elements carrying id="dup" from one included
-  // file, which is invalid HTML and makes the anchors collide. 0.1.10 renames
-  // each later copy and reports every rename.
+test('Carve 0.2 preserves authored ids across includes and reports duplicates', async () => {
+  // C2-N-057 and C2-N-058 replace 0.1's include-id-rename behavior.
   const { html, warnings } = await build({
     'child.crv': '{#sec}\n# Shared\n\n{#dup}\nA note.\n',
     'page.crv': '{#dup}\nBefore.\n\n{{ child.crv }}\n\n{{ child.crv }}\n',
   })
 
   const ids = [...html.matchAll(/id="([^"]+)"/g)].map((match) => match[1])
-  assert.equal(new Set(ids).size, ids.length, `duplicate ids emitted: ${ids.join(', ')}`)
-  assert.ok(ids.includes('dup-2'), `expected a renamed id, got: ${ids.join(', ')}`)
-  assert.equal(warnings.filter((message) => /Id "dup" was renamed/.test(message)).length, 2)
+  assert.deepEqual(ids, ['dup', 'sec', 'dup', 'sec', 'dup'])
+  assert.equal(warnings.filter((message) => message.includes('[duplicate-id]')).length, 3)
 })
 
 test('a blanked destination scheme reaches the webpack log', async () => {
@@ -99,16 +96,18 @@ test('a render loss in an included file names that file', async () => {
   assert.ok(losses.some((message) => message.endsWith('\nBlanked a denied destination scheme [destination-denied] (line 5, column 1)')), JSON.stringify(losses))
 })
 
-test('braced cell alignment renders and the glued 0.1.13 prefix is reported', async () => {
-  // markup-carve/carve#5091: alignment moved into the cell's braces; `|=>`
-  // still reads the same until 0.2.0, and lint names the new spelling.
+test('Carve 0.2 reads glued alignment as cell text and reports it', async () => {
+  // U-056: the old glued alignment is literal cell text in 0.2.
   const braced = await build({ 'page.crv': '|= Item |={>} Price |\n| Tea | 3 |\n' }, { lint: true })
   assert.match(braced.html, /<th scope="col" style="text-align: right;">Price<\/th>/)
   assert.deepEqual(braced.warnings, [])
 
-  const glued = await build({ 'page.crv': '|= Item |=> Price |\n| Tea | 3 |\n' }, { lint: true })
-  assert.equal(glued.html, braced.html)
-  assert.ok(glued.warnings.some((message) => message.includes('[deprecated-cell-alignment] (line 1, column 11)')), JSON.stringify(glued.warnings))
+  // deprecated-cell-alignment is an upgrade-only lint rule; upgradeHints reports the row.
+  const glued = await build({ 'page.crv': '|= Item |=> Price |\n| Tea | 3 |\n' }, { lint: true, upgradeHints: true })
+  assert.notEqual(glued.html, braced.html)
+  assert.match(glued.html, /<th scope="col">&gt; Price<\/th>/)
+  assert.equal(glued.warnings.length, 1)
+  assert.ok(glued.warnings[0].endsWith('\nCarve 0.1 source: glued alignment mark put in braces [U-056] (line 1)'), glued.warnings[0])
 })
 
 test('a lone --- on the first line opens frontmatter to the end of the document', async () => {

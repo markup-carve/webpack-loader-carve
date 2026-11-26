@@ -139,11 +139,34 @@ test('does not lint by default', async () => {
   assert.deepEqual(warnings, [])
 })
 
-test('lints included files and reports an include failure once', async () => {
+test('reports Carve 0.1 spellings as warnings when upgradeHints is enabled', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-upgrade-'))
+  const { output, warnings } = await runLoader(dir, { upgradeHints: true, includes: false }, 'Text\n# Heading\n\nSome _underline_ text.\n')
+  assert.deepEqual(warnings, [
+    'Carve 0.1 source: blank line put above a block that 0.2 reads as a lazy line directly under text [U-001] (line 2)',
+    'Carve 0.1 source: bare underline put in braces [U-065] (line 4)',
+  ])
+  assert.match(output, /Some _underline_ text\./)
+})
+
+test('reports an upgrade row that needs a person even when nothing is rewritten', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-upgrade-report-'))
+  const { warnings } = await runLoader(dir, { upgradeHints: true, includes: false }, '- a\n\n  b\n')
+  assert.deepEqual(warnings, ['Carve 0.1 source: a loose list with one item is tight in 0.2, its first paragraph loses the paragraph element [U-021] (line 1)'])
+})
+
+test('does not run the upgrade by default', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-noupgrade-'))
+  const { warnings } = await runLoader(dir, { includes: false }, 'Some _underline_ text.\n')
+  assert.deepEqual(warnings, [])
+})
+
+test('lints included files and reports the include cause and render loss', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-lint-include-'))
   await writeFile(path.join(dir, 'shared.crv'), 'Bad [l](#zzz).\n')
   const { warnings } = await runLoader(dir, { lint: true }, '{{ shared.crv }}\n\n{{ missing.crv }}\n')
-  assert.equal(warnings.filter((w) => w.includes('missing.crv')).length, 1)
+  // C2-N-061: a failed include reports its parse cause and its render loss.
+  assert.equal(warnings.filter((w) => w.includes('missing.crv')).length, 2)
   assert.ok(warnings.some((w) => w.includes('[broken-fragment-link]') && w.includes(path.join(dir, 'shared.crv'))))
 })
 
@@ -153,10 +176,13 @@ test('an include warning names the included file it arose in', async () => {
   await writeFile(shared, 'Text.\n\n{{ missing.crv }}\n')
   for (const lint of [false, true]) {
     const { warnings } = await runLoader(dir, { lint }, '{{ shared.crv }}\n\n{{ gone.crv }}\n')
+    // C2-N-061: the missing file's cause precedes its render loss.
     assert.deepEqual(warnings.filter((w) => w.includes('missing.crv')), [
+      `Include "missing.crv" was not expanded: the file does not exist. [include-not-found] (${shared}, line 3, column 1)`,
       `Include "missing.crv" could not be resolved. [include-unresolved] (${shared}, line 3, column 1)`,
     ])
     assert.deepEqual(warnings.filter((w) => w.includes('gone.crv')), [
+      'Include "gone.crv" was not expanded: the file does not exist. [include-not-found] (line 3, column 1)',
       'Include "gone.crv" could not be resolved. [include-unresolved] (line 3, column 1)',
     ])
   }
@@ -164,12 +190,12 @@ test('an include warning names the included file it arose in', async () => {
 
 test('lint hints stay out of the build log unless asked for', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-lint-hint-'))
-  const source = 'Text.\n\n---\n\nSee [x](#nope).\n'
+  const source = 'Text {.x} here.\n\nSee [x](#nope).\n'
   const quiet = await runLoader(dir, { lint: true, includes: false }, source)
   assert.deepEqual(quiet.warnings.map((w) => w.match(/\[([a-z-]+)\]/)[1]), ['broken-fragment-link'])
 
   const { warnings } = await runLoader(dir, { lint: { hints: true }, includes: false }, source)
-  assert.ok(warnings.some((w) => /\[thematic-break-spelling\] \(line 3, column 1\)$/.test(w)), JSON.stringify(warnings))
+  assert.ok(warnings.some((w) => /\[unattached-inline-attribute\] \(line 1, column 6\)$/.test(w)), JSON.stringify(warnings))
 })
 
 test('lint options turn on opt-in rules and skip ignored files', async () => {
@@ -196,4 +222,38 @@ test('lint enabledRules turns on an opt-in authoring rule', async () => {
 
   const { warnings } = await runLoader(dir, { lint: { enabledRules: ['non-descriptive-link-text'] }, includes: false }, source)
   assert.ok(warnings.some((w) => w.includes('[non-descriptive-link-text] (line 3, column 6)')), JSON.stringify(warnings))
+})
+
+test('Carve 0.2 keeps raw HTML disabled unless explicitly enabled', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-raw-html-'))
+  const source = 'Before <b>trusted</b> after.\n'
+  const safe = await runLoader(dir, { includes: false }, source)
+  const trusted = await runLoader(dir, { includes: false, carveOptions: { rawHtml: true } }, source)
+  // C2-H-127: rawHtml defaults to false and an explicit true admits HTML.
+  assert.match(safe.output, /&lt;b&gt;trusted&lt;\/b&gt;/)
+  assert.match(trusted.output, /<b>trusted<\/b>/)
+})
+
+test('Carve 0.2 refuses a removed render option instead of ignoring it', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-old-option-'))
+  // U-079: host render options must be reviewed when ported to 0.2.
+  await assert.rejects(runLoader(dir, { includes: false, carveOptions: { allowRawHtml: true } }, 'Text.\n'),
+    /allowRawHtml/)
+})
+
+test('Carve 0.2 diagnostic columns count code points in included files', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-unicode-column-'))
+  const file = path.join(dir, 'child.crv')
+  await writeFile(file, '😀 [x](javascript:1)\n')
+  const { warnings } = await runLoader(dir, {}, '{{ child.crv }}\n')
+  // C2-A-141: the emoji occupies one column and four UTF-8 bytes.
+  assert.ok(warnings.some((warning) => warning.includes(`${file}, line 1, column 3)`)), JSON.stringify(warnings))
+})
+
+test('render diagnostics past the loss cap are counted, not dropped', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'webpack-carve-cap-'))
+  const { warnings } = await runLoader(dir, { carveOptions: { maxLosses: 1 } }, '[a](javascript:1) [b](javascript:2) [c](javascript:3)\n')
+
+  assert.equal(warnings.filter((warning) => warning.includes('[destination-denied]')).length, 1)
+  assert.ok(warnings.includes('2 more diagnostics were not reported'), warnings.join('\n'))
 })
