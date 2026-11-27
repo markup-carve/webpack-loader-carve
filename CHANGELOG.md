@@ -2,14 +2,21 @@
 
 ## Unreleased
 
-### Changed
+## [0.2.0] - 2026-11-27
 
-- The `next2` loader uses the Carve 0.2 public API from a pinned engine commit.
-  Includes, render losses, and lint findings use the 0.2 diagnostics contract.
+### Breaking
+
+- The loader uses the Carve 0.2 public API, so `.crv` files are read as
+  Carve 0.2. Includes, render losses, and lint findings use the 0.2
+  diagnostics contract (#32).
 - `carveOptions.rawHtml` replaces `allowRawHtml`. Raw HTML remains disabled by
-  default.
-- Engine: pinned to the renamed carve-js `next2` (11de2ad). The loader imports
-  `@markup-carve/carve` and `@markup-carve/carve/node`; the `/v2` entries are gone.
+  default (#32).
+- Requires the Carve 0.2 engine (`@markup-carve/carve` 0.2).
+
+### Added
+
+- `upgradeHints: true` reports each distinct row of the engine's 0.1 to 0.2
+  upgrade report as a warning with the row id and line (#38).
 
 ## [0.1.4] - 2026-11-12
 
